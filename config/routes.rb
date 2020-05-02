@@ -1,5 +1,12 @@
 Rails.application.routes.draw do
-  resources :users
-  post "/auth/login"
-  # For details on the DSL available within this file, see https://guides.rubyonrails.org/routing.html
+  resources :tags
+  resources :users do
+    resources :articles do
+      get "/tags/:id", to: "tags#show"
+      post "/tags", to: "tags#create"
+      delete "/tags/:id", to: "tags#destroy"
+    end
+    get "/tags", to: "tags#index"
+  end
+  post "/auth/login" to: 
 end
