@@ -1,5 +1,4 @@
 Rails.application.routes.draw do
-  resources :tags
   resources :users do
     resources :articles do
       get "/tags/:id", to: "tags#show"
@@ -8,5 +7,5 @@ Rails.application.routes.draw do
     end
     get "/tags", to: "tags#index"
   end
-  post "/auth/login" to: 
+  post "/login", to: "auth#login"
 end
