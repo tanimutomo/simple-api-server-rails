@@ -16,7 +16,7 @@ module JwtAuthenticator
     payload = decode(encoded_token)
 
     # Check requested user and url user
-    if params[:id].to_i != payload["user_id"]
+    if params[:id].to_i != payload["user_id"] and params[:user_id].to_i != payload["user_id"]
       raise Error::UnauthorizedError.new("No access permission")
     end
 
@@ -30,7 +30,7 @@ module JwtAuthenticator
   end
 
   def encode(user_id)
-    expires_in = 1.month.from_now.to_i
+    expires_in = 1.hour.from_now.to_i
     preload = {user_id: user_id, exp: expires_in}
     JWT.encode(preload, SECRET_KEY, "HS256")
   end

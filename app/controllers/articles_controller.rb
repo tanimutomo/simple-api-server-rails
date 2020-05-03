@@ -1,4 +1,8 @@
 class ArticlesController < ApplicationController
+  include Error
+  include JwtAuthenticator
+
+  before_action :jwt_authenticate, except: :create
   before_action :set_article, only: [:show, :update, :destroy]
 
   # GET /articles
@@ -16,9 +20,10 @@ class ArticlesController < ApplicationController
   # POST /articles
   def create
     @article = Article.new(article_params)
+    puts "@article:", @article
 
     if @article.save
-      render json: @article, status: :created, location: @article
+      render json: @article, status: :created
     else
       render json: @article.errors, status: :unprocessable_entity
     end
@@ -35,7 +40,11 @@ class ArticlesController < ApplicationController
 
   # DELETE /articles/1
   def destroy
-    @article.destroy
+    if @article.destroy
+      render json: @article, status: :ok
+    else
+      render json: @articles.errors, status: :unprocessable_entity
+    end
   end
 
   private
@@ -46,6 +55,8 @@ class ArticlesController < ApplicationController
 
     # Only allow a trusted parameter "white list" through.
     def article_params
-      params.require(:article).permit(:title, :content, :user_id)
+      params_ = params.require(:article).permit(:title, :content)
+      params_["user_id"] = params[:user_id].to_i
+      params_
     end
 end

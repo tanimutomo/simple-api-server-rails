@@ -1,4 +1,4 @@
 class Tag < ApplicationRecord
   belongs_to :article
-  validates :name, presence :true
+  validates :name, presence: true
 end

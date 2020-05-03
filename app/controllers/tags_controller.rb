@@ -1,4 +1,8 @@
 class TagsController < ApplicationController
+  include Error
+  include JwtAuthenticator
+
+  before_action :jwt_authenticate, except: :create
   before_action :set_tag, only: [:show, :update, :destroy]
 
   # GET /tags
@@ -18,7 +22,7 @@ class TagsController < ApplicationController
     @tag = Tag.new(tag_params)
 
     if @tag.save
-      render json: @tag, status: :created, location: @tag
+      render json: @tag, status: :created
     else
       render json: @tag.errors, status: :unprocessable_entity
     end
@@ -26,7 +30,11 @@ class TagsController < ApplicationController
 
   # DELETE /tags/1
   def destroy
-    @tag.destroy
+    if @tag.destroy
+      render json: @article, status: :ok
+    else
+      render json: @article.errors, status: :unprocessable_entity
+    end
   end
 
   private
@@ -37,6 +45,8 @@ class TagsController < ApplicationController
 
     # Only allow a trusted parameter "white list" through.
     def tag_params
-      params.require(:tag).permit(:name, :article_id)
+      params_ = params.require(:tag).permit(:name, :article_id)
+      params_["article_id"] = params[:article_id].to_i
+      params_
     end
 end
