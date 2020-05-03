@@ -6,5 +6,5 @@ class User < ApplicationRecord
   validates :password, presence: true, length: { minimum: 8 }
 
   # Scopes
-  scope :by_user_id, ->(user_id) { find(user_id) }
+  scope :by_user, ->(user_id) { find(user_id) }
 end

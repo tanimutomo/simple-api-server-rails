@@ -5,11 +5,15 @@ class AuthController < ApplicationController
   # POST /auth/login
   def login 
     # Get User based on login ID
-    @current_user = User.find_by(id: params[:id])
+    current_user = User.find_by(id: params[:id])
+    if current_user.nil?
+      raise Error::NotFoundError.new("User is not exists")
+    end
+
     # Authenticate by password
-    if @current_user.password == params[:password]
+    if current_user.password == params[:password]
       # Generate jwt
-      jwt_token = encode(@current_user.id)
+      jwt_token = encode(current_user.id)
       # Set token to response header
       response.headers["X-authentication-Token"] = jwt_token
       # Return response

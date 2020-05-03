@@ -10,11 +10,18 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2020_05_02_150335) do
+ActiveRecord::Schema.define(version: 2020_05_03_064810) do
 
-  create_table "articles", force: :cascade do |t|
+  create_table "article_translations", force: :cascade do |t|
+    t.string "locale"
     t.string "title"
     t.text "content"
+    t.integer "article_id"
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+  end
+
+  create_table "articles", force: :cascade do |t|
     t.integer "user_id"
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
