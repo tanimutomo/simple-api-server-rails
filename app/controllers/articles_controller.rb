@@ -3,48 +3,106 @@ class ArticlesController < ApplicationController
   include JwtAuthenticator
 
   before_action :jwt_authenticate, except: :create
-  before_action :set_articles, only: [:index]
-  before_action :set_article, only: [:show, :update, :destroy]
 
   # In /users/:user_id
 
   # GET /articles
   def index
-    render json: @articles
+    # Get articles of a user
+    articles = Article.all_by_user(params[:user_id])
+    unless articles.present?
+      render json: [], status: :ok
+      return
+    end
+
+    # Extract article ids
+    article_ids = []
+    articles.each do |article|
+      article_ids.push(article[:id])
+    end
+
+    # Get article translations of all articles
+    article_translations = ArticleTranslation.all_by_articles(article_ids)
+
+    render json: { article: articles, article_translation: article_translations }, status: :ok
   end
 
   # GET /articles/1
   def show
-    render json: @article
+    # Get article
+    article = Article.by_article_user(params[:id], params[:user_id])
+    unless article.present?
+      raise Error::NotFoundError.new(article.errors)
+    end
+
+    # Get article translations
+    article_translations = ArticleTranslation.all_by_article(article[:id])
+
+    render json: { article: article, article_translation: article_translations }, status: :ok
   end
 
   # POST /articles
   def create
-    @article = Article.new(article_params)
-
-    if @article.save
-      render json: @article, status: :created
-    else
-      render json: @article.errors, status: :unprocessable_entity
+    # Save to article
+    article = Article.new(requested_article)
+    unless article.save
+      raise Error::BadRequestError.new(article.errors)
     end
+
+    # Save to article translation
+    article_translation = ArticleTranslation.new(requested_article_translation(article[:id]))
+    unless article_translation.save
+      article.destroy
+      raise Error::BadRequestError.new(article.errors)
+    end
+
+    render json: { article: article, article_translation: article_translation }, status: :created
   end
 
-  # PATCH/PUT /articles/1
+  # PUT /articles/1
+  # Update article or Add new locale's post
   def update
-    if @article.update(article_params)
-      render json: @article
-    else
-      render json: @article.errors, status: :unprocessable_entity
+    # Check the requested article is exists
+    article = Article.by_article_user(params[:id], params[:user_id])
+    unless article.present?
+      raise Error::NotFoundError.new(article.errors)
     end
+
+    # Check the requested id and locale's article is exists
+    article_translation = ArticleTranslation.by_article_locale(article[:id], params[:locale])
+    if article_translation.present?
+      # if exists, update post
+      unless article_translation.update(requested_article_translation(article[:id]))
+        raise BadRequestError(article_translation.errors)
+      end
+    else
+      # if not exists create new post
+      article_translation = ArticleTranslation.new(requested_article_translation(article[:id]))
+      unless article_translation.save
+        raise BadRequestError(article_translation.errors)
+      end
+    end
+
+    render json: { article: article, article_translation: article_translation }, status: :ok
   end
 
   # DELETE /articles/1
   def destroy
-    if @article.destroy
-      render json: @article, status: :ok
-    else
-      render json: @articles.errors, status: :unprocessable_entity
+    # Check the requested article is exists
+    article = Article.by_article_user(params[:id], params[:user_id])
+    unless article.present?
+      raise Error::NotFoundError.new(article.errors)
     end
+
+    # Delete all article and its translations
+    article_translations = ArticleTranslation.all_by_article(params[:id])
+    if article_translations.present?
+      article.destroy
+      article_translations.each do |article_translation|
+        article_translation.destroy
+      end
+    end
+    render json: { article: article, article_translations: article_translations }, status: :ok
   end
 
   rescue_from Error::UnauthorizedError do |e|
@@ -62,19 +120,17 @@ class ArticlesController < ApplicationController
 
   private
 
-  def set_articles
-    @articles = Article.all_of_user(params[:user_id])
-  end
-
-  # Use callbacks to share common setup or constraints between actions.
-  def set_article
-    @article = Article.one_of_user(params[:id], params[:user_id])
-  end
-
   # Only allow a trusted parameter "white list" through.
-  def article_params
-    params_ = params.require(:article).permit(:title, :content)
-    params_['user_id'] = params[:user_id].to_i
-    params_
+  def requested_article
+    { user_id: params[:user_id].to_i }
+  end
+
+  def requested_article_translation(article_id)
+    {
+      article_id: article_id,
+      title: params[:title],
+      content: params[:content],
+      locale: params[:locale]
+    }
   end
 end
