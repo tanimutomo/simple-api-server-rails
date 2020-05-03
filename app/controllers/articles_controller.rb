@@ -3,12 +3,13 @@ class ArticlesController < ApplicationController
   include JwtAuthenticator
 
   before_action :jwt_authenticate, except: :create
+  before_action :set_articles, only: [:index]
   before_action :set_article, only: [:show, :update, :destroy]
+
+  # In /users/:user_id
 
   # GET /articles
   def index
-    @articles = Article.all
-
     render json: @articles
   end
 
@@ -20,7 +21,6 @@ class ArticlesController < ApplicationController
   # POST /articles
   def create
     @article = Article.new(article_params)
-    puts "@article:", @article
 
     if @article.save
       render json: @article, status: :created
@@ -47,16 +47,34 @@ class ArticlesController < ApplicationController
     end
   end
 
-  private
-    # Use callbacks to share common setup or constraints between actions.
-    def set_article
-      @article = Article.find(params[:id])
-    end
+  rescue_from Error::UnauthorizedError do |e|
+    render json: { message: e.message }, status: :unauthorized
+  end
+  rescue_from Error::BadRequestError do |e|
+    render json: { message: e.message }, status: :bad_request
+  end
+  rescue_from Error::NotFoundError, ActiveRecord::RecordNotFound do |e|
+    render json: { message: e.message }, status: :not_found
+  end
+  rescue_from Error::InternalServerError do |e|
+    render json: { message: e.message }, status: :internal_server
+  end
 
-    # Only allow a trusted parameter "white list" through.
-    def article_params
-      params_ = params.require(:article).permit(:title, :content)
-      params_["user_id"] = params[:user_id].to_i
-      params_
-    end
+  private
+
+  def set_articles
+    @articles = Article.all_of_user(params[:user_id])
+  end
+
+  # Use callbacks to share common setup or constraints between actions.
+  def set_article
+    @article = Article.one_of_user(params[:id], params[:user_id])
+  end
+
+  # Only allow a trusted parameter "white list" through.
+  def article_params
+    params_ = params.require(:article).permit(:title, :content)
+    params_['user_id'] = params[:user_id].to_i
+    params_
+  end
 end

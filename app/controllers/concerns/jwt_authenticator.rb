@@ -3,6 +3,7 @@ module JwtAuthenticator
   require "jwt"
 
   SECRET_KEY = Rails.application.secrets.secret_key_base
+  ALGORITHM = 'HS256'
 
   def jwt_authenticate
     if request.headers["Authorization"].blank?
@@ -32,11 +33,13 @@ module JwtAuthenticator
   def encode(user_id)
     expires_in = 1.hour.from_now.to_i
     preload = {user_id: user_id, exp: expires_in}
-    JWT.encode(preload, SECRET_KEY, "HS256")
+    JWT.encode(preload, SECRET_KEY, ALGORITHM)
   end
 
   def decode(encoded_token)
-    decoded_dwt = JWT.decode(encoded_token, SECRET_KEY, true, algorithm: "HS256")
+    decoded_dwt = JWT.decode(encoded_token, SECRET_KEY, true, algorithm: ALGORITHM)
     decoded_dwt.first
+  rescue 
+    raise Error::UnauthorizedError.new("Token is expired")
   end
 end
