@@ -3,36 +3,45 @@ class UsersController < ApplicationController
   include JwtAuthenticator
 
   before_action :jwt_authenticate, except: :create
-  before_action :set_user, only: [:show, :update, :destroy]
 
   # GET /users/1
   def show
-    render json: @user
+    user = User.by_user(params[:id])
+    render json: user, status: :ok
   end
 
   # POST /users
   def create
-    @user = User.new(user_params)
-
-    if @user.save
-      render json: @user, status: :created, location: @user
-    else
-      render json: @user.errors, status: :unprocessable_entity
+    user = User.new(requested)
+    unless user.save
+      raise Error::BadRequestError.new("A lack of required parameter for creating a new user")
     end
+
+    render json: user, status: :created
   end
 
   # PATCH/PUT /users/1
   def update
-    if @user.update(user_params)
-      render json: @user
-    else
-      render json: @user.errors, status: :unprocessable_entity
+    user = User.by_user(params[:id])
+    if user.blank?
+      raise Error::NotFoundError.new("Requested user is not existed")
     end
+
+    unless user.update(requested_user)
+      raise Error::BadRequestError.new("A lack of required parameter for creating a new user")
+    end
+
+    render json: user, status: :ok
   end
 
   # DELETE /users/1
   def destroy
-    @user.destroy
+    user = User.by_user(params[:id])
+    if user.blank?
+      raise Error::NotFoundError.new("Requested user is not existed")
+    end
+
+    user.destroy
   end
 
   rescue_from Error::UnauthorizedError do |e|
@@ -50,13 +59,7 @@ class UsersController < ApplicationController
 
   private
 
-    # Use callbacks to share common setup or constraints between actions.
-    def set_user
-      @user = User.by_user_id(params[:id])
-    end
-
-    # Only allow a trusted parameter "white list" through.
-    def user_params
-      params.require(:user).permit(:name, :password)
-    end
+  def requested_user
+    params.require(:user).permit(:name, :password)
+  end
 end

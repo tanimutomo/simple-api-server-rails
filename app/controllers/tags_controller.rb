@@ -3,38 +3,36 @@ class TagsController < ApplicationController
   include JwtAuthenticator
 
   before_action :jwt_authenticate, except: :create
-  before_action :set_user_tags, only: [:index_user]
-  before_action :set_article_tags, only: [:index_article]
-  before_action :set_tag, only: [:destroy]
 
   # GET /user/:user_id/tags
   def index_user
-    render json: @tags
+    tags = Tag.all_by_user(params[:user_id])
+    render json: tags, status: :ok
   end
 
   # GET /users/:user_id/articles/:article_id/tags
   def index_article
-    render json: @tags
+    tags = Tag.all_by_article_user(params[:article_id], params[:user_id])
+    render json: tags, status: :ok
   end
 
   # POST /users/.../:article_id/tags
   def create
-    @tag = Tag.new(tag_params)
-
-    if @tag.save
-      render json: @tag, status: :created
-    else
-      render json: @tag.errors, status: :unprocessable_entity
+    tag = Tag.new(requested_tag)
+    unless tag.save
+      raise Error::BadRequestError.new("A lack of required parameter for tag")
     end
+    render json: tag, status: :created
   end
 
   # DELETE /users/.../:article_id/tags/1
   def destroy
-    if @tag.destroy
-      render json: @article, status: :ok
-    else
-      render json: @article.errors, status: :unprocessable_entity
+    tag = Tag.by_article(params[:id], params[:article_id], params[:user_id])
+    if tag.blank?
+      raise Error::NotFoundError.new("Requested tag is not existed")
     end
+    tag.destroy
+    render json: tag, status: :ok
   end
 
   rescue_from Error::UnauthorizedError do |e|
@@ -52,24 +50,10 @@ class TagsController < ApplicationController
 
   private
 
-  def set_user_tags
-    @tags = Tag.all_of_user(params[:user_id])
-  end
-
-  def set_article_tags
-    @tags = Tag.all_of_article(params[:article_id], params[:user_id])
-  end
-
-  # Use callbacks to share common setup or constraints between actions.
-  def set_tag
-    @tag = Tag.one_of_article(params[:id, params[:article_id], params[:user_id]])
-  end
-
-  # Only allow a trusted parameter "white list" through.
-  def tag_params
-    params_ = params.require(:tag).permit(:name, :article_id)
-    params_["user_id"] = params[:user_id].to_i
-    params_["article_id"] = params[:article_id].to_i
-    params_
+  def requested_tag
+    tag = params.require(:tag).permit(:name, :article_id)
+    tag["user_id"] = params[:user_id].to_i
+    tag["article_id"] = params[:article_id].to_i
+    tag
   end
 end
